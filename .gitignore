@@ -1,0 +1,9 @@
+node_modules/
+dist/
+
+# captured logs (contain your prompts, code and account/device ids)
+/logs/*
+!/logs/.gitkeep
+
+# the proxy remembers which agent you chose
+/.agent-choice.json

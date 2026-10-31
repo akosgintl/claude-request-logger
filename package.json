@@ -1,0 +1,30 @@
+{
+  "name": "claude-request-logger",
+  "private": true,
+  "description": "One local proxy that captures every API call your coding agents make (any repo, any number of sessions), plus a viewer to explore them.",
+  "type": "module",
+  "scripts": {
+    "start": "tsx proxy/proxy.ts",
+    "ui": "vite --config viewer/vite.config.ts",
+    "test": "vitest run",
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@clack/prompts": "~1.7.0",
+    "react": "^19.2.7",
+    "react-dom": "^19.2.7"
+  },
+  "devDependencies": {
+    "@types/node": "^22",
+    "@types/react": "^19.2.7",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^5.0.0",
+    "tsx": "^4.19.4",
+    "typescript": "^5.9.2",
+    "vite": "^7.1.7",
+    "vitest": "^3.2.3"
+  },
+  "allowScripts": {
+    "esbuild@0.28.2": true
+  }
+}
