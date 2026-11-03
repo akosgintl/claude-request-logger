@@ -14,8 +14,8 @@
  * point any number of agents at it, and the captures land in one logs folder
  * (each request carries its session id, which the viewer groups by).
  *
- * Run:   npm start
- *        npm start -- --force
+ * Run:   npm run proxy
+ *        npm run proxy -- --force
  *
  * Zero runtime dependencies — Node built-ins only.
  */
@@ -497,7 +497,7 @@ function printBanner(target: ProxyTarget): void {
   for (const warning of target.warnings) printWrapped("Warning", warning);
 
   console.log(
-    dim("  Using a different agent now? Run: npm start -- --force")
+    dim("  Using a different agent now? Run: npm run proxy -- --force")
   );
   // The tool waits on a port, so nothing tells the student it is finished.
   // Say how to stop it here, where they are already reading.
@@ -521,7 +521,12 @@ async function ask(offerToRemember: boolean): Promise<AgentChoice> {
   return choice;
 }
 
-async function main(): Promise<void> {
+/**
+ * Run the wizard and start the proxy. Resolves to true once it is listening,
+ * or false if it printed a message and stopped instead (an unsupported or
+ * unlisted agent). start-all.ts uses that to decide whether to start the viewer.
+ */
+export async function main(): Promise<boolean> {
   const force = process.argv.includes("--force");
 
   // --force forgets the old answer before it asks. The new answer then replaces
@@ -572,7 +577,7 @@ async function main(): Promise<void> {
     console.log("");
     console.log(`      ${bold(resolution.url)}`);
     console.log("");
-    return;
+    return false;
   }
 
   if (resolution.kind === "refusal") {
@@ -594,17 +599,23 @@ async function main(): Promise<void> {
     console.log("");
     console.log("  To follow the lesson, install one of the other agents, then run:");
     console.log("");
-    console.log(`      ${bold("npm start")}`);
+    console.log(`      ${bold("npm run proxy")}`);
     console.log("");
-    return;
+    return false;
   }
 
   const target = resolution;
   const server = http.createServer((req, res) => handle(req, res, target));
   server.on("upgrade", rejectUpgrade);
-  server.listen(PORT, () => {
-    printBanner(target);
+  await new Promise<void>((resolve, reject) => {
+    server.once("error", reject);
+    server.listen(PORT, () => {
+      server.off("error", reject);
+      printBanner(target);
+      resolve();
+    });
   });
+  return true;
 }
 
 /** Print a labelled paragraph, indented and wrapped. */
@@ -632,7 +643,7 @@ function wrap(text: string, width: number): string[] {
 }
 
 // Only start the wizard and the server when this file is run directly (`npm
-// run request-logger`, or `tsx request-logger/proxy.ts`), not when it is
+// run proxy`, or `tsx proxy/proxy.ts`), not when it is
 // imported — the tests import pure functions like upstreamConnection from
 // this module, and must not trigger the interactive wizard by doing so.
 const isMain = path.resolve(process.argv[1] ?? "") === fileURLToPath(import.meta.url);

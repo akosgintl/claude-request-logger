@@ -1,5 +1,5 @@
 {
-  "include": ["proxy", "viewer", "vitest.config.ts"],
+  "include": ["proxy", "viewer", "scripts", "vitest.config.ts"],
   "compilerOptions": {
     "lib": ["DOM", "DOM.Iterable", "ES2022"],
     "types": ["node", "vite/client"],

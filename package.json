@@ -4,8 +4,9 @@
   "description": "One local proxy that captures every API call your coding agents make (any repo, any number of sessions), plus a viewer to explore them.",
   "type": "module",
   "scripts": {
-    "start": "tsx proxy/proxy.ts",
-    "ui": "vite --config viewer/vite.config.ts",
+    "proxy": "tsx proxy/proxy.ts",
+    "viewer": "vite --config viewer/vite.config.ts",
+    "all": "tsx scripts/start-all.ts",
     "test": "vitest run",
     "typecheck": "tsc --noEmit"
   },

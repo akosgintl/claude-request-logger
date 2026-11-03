@@ -10,7 +10,8 @@ goes over the wire.
 
 ## Run it
 
-Run these from the root of this repo.
+Run everything from the root of this repo. The proxy and the viewer share one
+`package.json`, so there is one install for both.
 
 **1. Install the dependencies** (once):
 
@@ -18,20 +19,30 @@ Run these from the root of this repo.
 npm install
 ```
 
-**2. Start the proxy:**
+**2. Start the proxy, the viewer, or both:**
 
-```bash
-npm start
-```
+| Command          | Starts                | Use it when                                        |
+| ---------------- | --------------------- | -------------------------------------------------- |
+| `npm run proxy`  | the proxy only        | you only want the files in `logs/`                 |
+| `npm run viewer` | the viewer only       | the proxy runs elsewhere, or you read old captures |
+| `npm run all`    | both, in one terminal | you want both and one terminal is enough           |
 
-The first time you run it, it asks which agent you use, then which model
+`npm run all` asks the proxy's setup questions first, then starts the viewer
+once the proxy is listening, so the questions are never interrupted. One
+**Ctrl+C** stops both. Flags for the proxy work here too, for example
+`npm run all -- --force`.
+
+If you prefer two terminals, run `npm run proxy` in one and `npm run viewer` in the
+other, as before.
+
+The first time you start the proxy, it asks which agent you use, then which model
 provider you use with it. (OMP is the one exception: it has no fixed provider
 of its own, so it skips straight to the base URL question below.) Last, it
 asks whether to remember your answer. Say no if you swap agents often, and it
 asks again every time. It then prints the exact command for your setup, and
 starts listening on `http://localhost:8787`.
 
-**3. Start your agent in a second terminal**, using the command the proxy
+**3. Start your agent in another terminal**, using the command the proxy
 printed. For Claude Code on the Anthropic API, that is:
 
 ```bash
@@ -40,17 +51,8 @@ ANTHROPIC_BASE_URL=http://localhost:8787 ENABLE_TOOL_SEARCH=true claude
 
 Each request now writes its files to `logs/`.
 
-**4. Optional: open the viewer in a third terminal** to explore the captures
-in a browser:
-
-```bash
-npm run ui
-```
-
-Then open <http://localhost:5180>. If it stops with
-`Port 5180 is already in use`, another viewer is running: stop that one, or use
-`npm run ui -- --port 5181`. See [viewer/README.md](viewer/README.md) for what it
-shows.
+**4. Open the viewer** at <http://localhost:5180> (if you started it) to explore
+the captures in a browser. See [The viewer](#the-viewer) below for what it shows.
 
 The proxy keeps listening until you stop it. Press **Ctrl+C** to stop it. The
 console says so too.
@@ -97,7 +99,7 @@ Endpoints that require credentials for model listing are not supported.
 To change a remembered answer:
 
 ```bash
-npm start -- --force
+npm run proxy -- --force     # or: npm run all -- --force
 ```
 
 This forgets the old answer first, then keeps the new one in its place. It does
@@ -107,13 +109,13 @@ agent that cannot be logged, nothing is kept, and the old answer is gone too.
 To use a different port:
 
 ```bash
-PORT=9000 npm start
+PORT=9000 npm run proxy
 ```
 
 On Windows, run that in PowerShell (not Command Prompt) as:
 
 ```powershell
-$env:PORT = 9000; npm start
+$env:PORT = 9000; npm run proxy
 ```
 
 A remembered answer is kept in `.agent-choice.json` at the repo root, which is
@@ -344,7 +346,7 @@ The failure modes here are quiet ones. An empty folder looks the same whichever
 of these happened:
 
 1. **You changed agent and forgot to say so.** Run
-   `npm start -- --force`. The line at the top of the console names
+   `npm run proxy -- --force`. The line at the top of the console names
    the agent the tool currently thinks you use.
 2. **Your agent chose a WebSocket.** This tool reads HTTP. Some Copilot models,
    and Pi's default transport, negotiate a WebSocket instead, and a WebSocket
@@ -399,6 +401,80 @@ Be fair to the tool when you judge a failure.
 
 If one of them is wrong, it is worth reporting, and the fix is likely to be one
 line in `agents.ts`.
+
+## The viewer
+
+The viewer (Harness Inspector) is a React + Vite UI for the captures in
+`logs/`. Start it with `npm run viewer` (or together with the proxy, with
+`npm run all`) and open <http://localhost:5180>.
+
+It listens on 127.0.0.1 only, because the captures contain your account and
+device ids. If it stops with `Port 5180 is already in use`, another viewer is
+running. Stop that one, or pick another port:
+
+```bash
+npm run viewer -- --port 5181
+```
+
+### What it shows
+
+
+- **Sessions** — grouped by the `session_id` Claude Code puts in `metadata.user_id`.
+- **Turns** — one per prompt you typed (or a message from another session),
+  holding every API call until the model stops.
+- **Call kinds**
+  - `main` — your conversation thread.
+  - `subagent` — threads with a different system prompt (e.g. the Agent tool).
+  - `side` — housekeeping: tool-less calls (session title), and forks of a
+    thread the harness sends on its own: prompt suggestions, progress
+    summaries, away recaps, `/compact` summaries. Recognised by `HARNESS_FORKS` in `viewer/server/parse.ts`,
+    or because the next call in the thread did not carry them forward.
+- **Owner** (separate from kind) — a side call keeps the thread it forked
+  from, because a fork reuses that thread's system prompt. So badges read
+  `main`, `main · side` (prompt suggestions, away recaps), `subagent N`,
+  `sub N · side` (progress summaries) and `session` (tool-less: title, quota).
+  The colour is the owner's; side calls are hollow and dashed. Turns has a
+  toggle for each group, plus one chip per subagent that hides everything it
+  owns.
+- **Subagents** — numbered by first call, each with its own colour (badges,
+  row edges, chart strip, inspector), and named after the `Agent`/`Task` tool
+  call that spawned it (its `prompt` reappears as the subagent's first
+  message). The panel is a shared timeline: dashed = spawned but not yet
+  running, bar = running, ticks = API calls (click to inspect), ◂ = when the
+  main thread received the report. Click a row for the task, the report the
+  main agent got, tool counts, token stats and every step. Background agents
+  are followed through their hand-back: launch ack (`agentId`) →
+  `<agent-message from="agentId">` (the report) → `<task-notification>`
+  (status). In Turns, coloured chips filter subagents one by one.
+- **Context window per call** — cache read / cache write / uncached input /
+  output, straight from the response's `usage`. Dashed markers show
+  `/compact` (amber, after the summary call) and rewinds (cyan, before the
+  first call whose thread shrank while keeping its first message).
+- **Call inspector → What's new** — each request resends the whole history,
+  so the viewer diffs against the previous call in the same thread and shows
+  only what the harness appended: tool results, `<system-reminder>`s (marked
+  "injected by harness"), your prompt.
+- **Context composition** — an *estimate*: the call's real token count split by
+  the character share of system prompt, tool schemas, history and new content.
+
+### Reading captures from another folder
+
+The viewer only needs a folder of captures (`*.request.txt` + `*.response.txt`
+pairs written by `proxy/proxy.ts`). It never imports the proxy, so it can read
+any such folder, including one from another repo:
+
+```bash
+LOGS_DIR=/path/to/other/logs npm run viewer
+```
+
+Run it from this repo. The other folder is only read, and new captures appear
+live because the viewer watches whatever `LOGS_DIR` points to.
+
+### How it works (viewer)
+
+`viewer/server/plugin.ts` is a Vite plugin that serves `/api/*` from the dev server
+and pushes `/api/events` (SSE) when `fs.watch` sees a new `.response.txt`.
+All parsing is pure and unit-tested in `viewer/server/parse.ts`.
 
 ## Extending it
 
